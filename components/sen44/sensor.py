@@ -11,7 +11,6 @@ from esphome.const import (
     CONF_PM_2_5,
     CONF_PM_4_0,
     CONF_PM_10_0,
-    CONF_STORE_BASELINE,
     CONF_TEMPERATURE,
     CONF_TEMPERATURE_COMPENSATION,
     DEVICE_CLASS_AQI,
@@ -38,52 +37,14 @@ sen44_ns = cg.esphome_ns.namespace("sen44")
 SEN44Component = sen44_ns.class_(
     "SEN44Component", cg.PollingComponent, sensirion_common.SensirionI2CDevice
 )
-RhtAccelerationMode = sen44_ns.enum("RhtAccelerationMode")
 
-CONF_ACCELERATION_MODE = "acceleration_mode"
-CONF_ALGORITHM_TUNING = "algorithm_tuning"
+
 CONF_AUTO_CLEANING_INTERVAL = "auto_cleaning_interval"
-CONF_GAIN_FACTOR = "gain_factor"
-CONF_GATING_MAX_DURATION_MINUTES = "gating_max_duration_minutes"
-CONF_INDEX_OFFSET = "index_offset"
-CONF_LEARNING_TIME_GAIN_HOURS = "learning_time_gain_hours"
-CONF_LEARNING_TIME_OFFSET_HOURS = "learning_time_offset_hours"
-CONF_NORMALIZED_OFFSET_SLOPE = "normalized_offset_slope"
-CONF_STD_INITIAL = "std_initial"
-CONF_TIME_CONSTANT = "time_constant"
 CONF_VOC = "voc"
-CONF_VOC_BASELINE = "voc_baseline"
 
 
 # Actions
 StartFanAction = sen44_ns.class_("StartFanAction", automation.Action)
-
-ACCELERATION_MODES = {
-    "low": RhtAccelerationMode.LOW_ACCELERATION,
-    "medium": RhtAccelerationMode.MEDIUM_ACCELERATION,
-    "high": RhtAccelerationMode.HIGH_ACCELERATION,
-}
-
-GAS_SENSOR = cv.Schema(
-    {
-        cv.Optional(CONF_ALGORITHM_TUNING): cv.Schema(
-            {
-                cv.Optional(CONF_INDEX_OFFSET, default=100): cv.int_range(1, 250),
-                cv.Optional(CONF_LEARNING_TIME_OFFSET_HOURS, default=12): cv.int_range(
-                    1, 1000
-                ),
-                cv.Optional(CONF_LEARNING_TIME_GAIN_HOURS, default=12): cv.int_range(
-                    1, 1000
-                ),
-                cv.Optional(
-                    CONF_GATING_MAX_DURATION_MINUTES, default=720
-                ): cv.int_range(0, 3000),
-                cv.Optional(CONF_STD_INITIAL, default=50): cv.int_,
-                cv.Optional(CONF_GAIN_FACTOR, default=230): cv.int_range(1, 1000),
-            }
-        )
-    }
-)
 
 
 def float_previously_pct(value):
@@ -131,9 +92,7 @@ CONFIG_SCHEMA = (
                 accuracy_decimals=0,
                 device_class=DEVICE_CLASS_AQI,
                 state_class=STATE_CLASS_MEASUREMENT,
-            ).extend(GAS_SENSOR),
-            cv.Optional(CONF_STORE_BASELINE, default=True): cv.boolean,
-            cv.Optional(CONF_VOC_BASELINE): cv.hex_uint16_t,
+            ),
             cv.Optional(CONF_TEMPERATURE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CELSIUS,
                 icon=ICON_THERMOMETER,
@@ -151,13 +110,8 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_TEMPERATURE_COMPENSATION): cv.Schema(
                 {
                     cv.Optional(CONF_OFFSET, default=0): cv.float_,
-                    cv.Optional(CONF_NORMALIZED_OFFSET_SLOPE, default=0): cv.All(
-                        float_previously_pct, cv.float_
-                    ),
-                    cv.Optional(CONF_TIME_CONSTANT, default=0): cv.int_,
                 }
             ),
-            cv.Optional(CONF_ACCELERATION_MODE): cv.enum(ACCELERATION_MODES),
         }
     )
     .extend(cv.polling_component_schema("60s"))
@@ -176,7 +130,6 @@ SENSOR_MAP = {
 
 SETTING_MAP = {
     CONF_AUTO_CLEANING_INTERVAL: "set_auto_cleaning_interval",
-    CONF_ACCELERATION_MODE: "set_acceleration_mode",
 }
 
 
@@ -194,24 +147,10 @@ async def to_code(config):
             sens = await sensor.new_sensor(config[key])
             cg.add(getattr(var, funcName)(sens))
 
-    if CONF_VOC in config and CONF_ALGORITHM_TUNING in config[CONF_VOC]:
-        cfg = config[CONF_VOC][CONF_ALGORITHM_TUNING]
-        cg.add(
-            var.set_voc_algorithm_tuning(
-                cfg[CONF_INDEX_OFFSET],
-                cfg[CONF_LEARNING_TIME_OFFSET_HOURS],
-                cfg[CONF_LEARNING_TIME_GAIN_HOURS],
-                cfg[CONF_GATING_MAX_DURATION_MINUTES],
-                cfg[CONF_STD_INITIAL],
-                cfg[CONF_GAIN_FACTOR],
-            )
-        )
     if CONF_TEMPERATURE_COMPENSATION in config:
         cg.add(
             var.set_temperature_compensation(
-                config[CONF_TEMPERATURE_COMPENSATION][CONF_OFFSET],
-                config[CONF_TEMPERATURE_COMPENSATION][CONF_NORMALIZED_OFFSET_SLOPE],
-                config[CONF_TEMPERATURE_COMPENSATION][CONF_TIME_CONSTANT],
+                config[CONF_TEMPERATURE_COMPENSATION][CONF_OFFSET]
             )
         )
 

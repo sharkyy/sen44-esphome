@@ -21,6 +21,11 @@ static const uint16_t SEN44_CMD_GET_ARTICLE_CODE = 0xD025;
 static const uint16_t SEN44_CMD_READ_PM_VALUES = 0x0353;
 static const uint16_t SEN44_CMD_READ_MESAUREMENT_TICKS = 0x0374;
 
+static const uint16_t SEN44_CMD_GET_SET_TEMPERATURE_OFFSET = 0x6014;
+static const uint16_t SEN44_CMD_WRITE_TEMPERATURE_OFFSET = 0x6002;
+static const uint16_t SEN44_DEVICE_STATUS_READ = 0xD206;
+static const uint16_t SEN44_DEVICE_STATUS_CLEAR = 0xD210;
+static const uint16_t SEN44_DEVICE_RESET = 0xD304;
 
 
 void SEN44Component::setup() {
@@ -92,6 +97,13 @@ void SEN44Component::setup() {
         }
       }
 
+      if (this->temperature_compensation_.has_value()) {
+        this->write_temperature_compensation_(this->temperature_compensation_.value());
+        delay(20);
+      }
+
+      get_temperature_offset();
+
       // Finally start sensor measurements
       if (!this->write_command(SEN44_CMD_START_MEASUREMENTS)) {
         ESP_LOGE(TAG, "Error starting continuous measurements.");
@@ -133,19 +145,8 @@ void SEN44Component::dump_config() {
   if (this->auto_cleaning_interval_.has_value()) {
     ESP_LOGCONFIG(TAG, "  Auto cleaning interval %" PRId32 " seconds", auto_cleaning_interval_.value());
   }
-  if (this->acceleration_mode_.has_value()) {
-    switch (this->acceleration_mode_.value()) {
-      case LOW_ACCELERATION:
-        ESP_LOGCONFIG(TAG, "  Low RH/T acceleration mode");
-        break;
-      case MEDIUM_ACCELERATION:
-        ESP_LOGCONFIG(TAG, "  Medium RH/T accelertion mode");
-        break;
-      case HIGH_ACCELERATION:
-        ESP_LOGCONFIG(TAG, "  High RH/T accelertion mode");
-        break;
-    }
-  }
+  ESP_LOGCONFIG(TAG, "  Temperature offset: %f", this->temperature_offset_);
+
   LOG_UPDATE_INTERVAL(this);
   LOG_SENSOR("  ", "PM  1.0", this->pm_1_0_sensor_);
   LOG_SENSOR("  ", "PM  2.5", this->pm_2_5_sensor_);
@@ -224,6 +225,34 @@ bool SEN44Component::start_fan_cleaning() {
     return false;
   } else {
     ESP_LOGD(TAG, "Fan auto clean started");
+  }
+  return true;
+}
+
+void SEN44Component::get_temperature_offset() {
+  if(!write_command(SEN44_CMD_GET_SET_TEMPERATURE_OFFSET)) {
+    this->status_set_warning();
+    ESP_LOGE(TAG, "write error get temperature offset (%d)", this->last_error_);
+    return;
+  }
+  uint16_t buffer[1];
+
+  if (!this->read_data(buffer, 1)) {
+    this->status_set_warning();
+    ESP_LOGD(TAG, "read data error (%d)", this->last_error_);
+    return;
+  }
+
+  this->temperature_offset_ = (int16_t) buffer[0] / 200.0f;
+  delay(20);
+}
+
+bool SEN44Component::write_temperature_compensation_(const TemperatureCompensation &compensation) {
+  uint16_t params[1];
+  params[0] = compensation.offset;
+  if (!write_command(SEN44_CMD_GET_SET_TEMPERATURE_OFFSET, params, 1)) {
+    ESP_LOGE(TAG, "set temperature_compensation failed. Err=%d", this->last_error_);
+    return false;
   }
   return true;
 }

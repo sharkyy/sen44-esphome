@@ -28,21 +28,8 @@ struct Sen5xBaselines {
   int32_t state1;
 } PACKED;  // NOLINT
 
-enum RhtAccelerationMode : uint16_t { LOW_ACCELERATION = 0, MEDIUM_ACCELERATION = 1, HIGH_ACCELERATION = 2 };
-
-struct GasTuning {
-  uint16_t index_offset;
-  uint16_t learning_time_offset_hours;
-  uint16_t learning_time_gain_hours;
-  uint16_t gating_max_duration_minutes;
-  uint16_t std_initial;
-  uint16_t gain_factor;
-};
-
 struct TemperatureCompensation {
   int16_t offset;
-  int16_t normalized_offset_slope;
-  uint16_t time_constant;
 };
 
 class SEN44Component : public PollingComponent, public sensirion_common::SensirionI2CDevice {
@@ -60,12 +47,17 @@ class SEN44Component : public PollingComponent, public sensirion_common::Sensiri
   void set_voc_sensor(sensor::Sensor *voc_sensor) { voc_sensor_ = voc_sensor; }
   void set_humidity_sensor(sensor::Sensor *humidity_sensor) { humidity_sensor_ = humidity_sensor; }
   void set_temperature_sensor(sensor::Sensor *temperature_sensor) { temperature_sensor_ = temperature_sensor; }
-  void set_store_baseline(bool store_baseline) { store_baseline_ = store_baseline; }
-  void set_acceleration_mode(RhtAccelerationMode mode) { acceleration_mode_ = mode; }
   void set_auto_cleaning_interval(uint32_t auto_cleaning_interval) { auto_cleaning_interval_ = auto_cleaning_interval; }
+  void set_temperature_compensation(float offset) {
+    TemperatureCompensation temp_comp;
+    temp_comp.offset = offset * 200;
+    temperature_compensation_ = temp_comp;
+  }
   bool start_fan_cleaning();
+  void get_temperature_offset();
 
  protected:
+  bool write_temperature_compensation_(const TemperatureCompensation &compensation);
   ERRORCODE error_code_;
   bool initialized_{false};
   sensor::Sensor *pm_1_0_sensor_{nullptr};
@@ -76,21 +68,14 @@ class SEN44Component : public PollingComponent, public sensirion_common::Sensiri
   sensor::Sensor *temperature_sensor_{nullptr};
   sensor::Sensor *humidity_sensor_{nullptr};
   sensor::Sensor *voc_sensor_{nullptr};
-  // SEN55 only
-  sensor::Sensor *nox_sensor_{nullptr};
 
   std::string product_name_;
   uint8_t serial_number_[4];
   uint16_t firmware_version_;
-  Sen5xBaselines voc_baselines_storage_;
-  bool store_baseline_;
-  uint32_t seconds_since_last_store_;
   ESPPreferenceObject pref_;
-  optional<RhtAccelerationMode> acceleration_mode_;
   optional<uint32_t> auto_cleaning_interval_;
-  optional<GasTuning> voc_tuning_params_;
-  optional<GasTuning> nox_tuning_params_;
   optional<TemperatureCompensation> temperature_compensation_;
+  float temperature_offset_;  
 };
 
 }  // namespace sen44

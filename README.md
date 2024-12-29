@@ -49,4 +49,6 @@ sensor:
       name: "VOC"
     address: 0x69
     update_interval: 10s
+    temperature_compensation:
+      offset: -1.0
 ```
