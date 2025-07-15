@@ -51,4 +51,16 @@ sensor:
     update_interval: 10s
     temperature_compensation:
       offset: -1.0
+  - platform: template
+    name: "Air Quality Index"
+    id: aqi
+    lambda: |-
+      if (id(pm_2_5).state > 100) {
+        return 0;
+      } else {
+        return 100 - id(pm_2_5).state;
+      }
+    unit_of_measurement: "AQI"
+    accuracy_decimals: 0
+    update_interval: 10s
 ```
