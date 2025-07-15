@@ -48,6 +48,7 @@ class SEN44Component : public PollingComponent, public sensirion_common::Sensiri
   void set_humidity_sensor(sensor::Sensor *humidity_sensor) { humidity_sensor_ = humidity_sensor; }
   void set_temperature_sensor(sensor::Sensor *temperature_sensor) { temperature_sensor_ = temperature_sensor; }
   void set_auto_cleaning_interval(uint32_t auto_cleaning_interval) { auto_cleaning_interval_ = auto_cleaning_interval; }
+  uint32_t get_auto_cleaning_interval() { return this->auto_cleaning_interval_.value_or(14400); }
   void set_temperature_compensation(float offset) {
     TemperatureCompensation temp_comp;
     temp_comp.offset = offset * 200;
