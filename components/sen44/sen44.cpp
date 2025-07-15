@@ -31,6 +31,7 @@ static const uint16_t SEN44_DEVICE_RESET = 0xD304;
 void SEN44Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up sen44...");
 
+  this->start_fan_cleaning();
   // the sensor needs 1000 ms to enter the idle state
   this->set_timeout(1000, [this]() {
     // Check if measurement is ready before reading the value
@@ -82,13 +83,13 @@ void SEN44Component::setup() {
       this->firmware_version_ >>= 8;
       ESP_LOGD(TAG, "Firmware version %d", this->firmware_version_);
 
-      bool result;
-      if (this->auto_cleaning_interval_.has_value()) {
-        // override default value
-        result = write_command(SEN44_CMD_AUTO_CLEANING_INTERVAL, this->auto_cleaning_interval_.value());
-      } else {
-        result = write_command(SEN44_CMD_AUTO_CLEANING_INTERVAL);
+      if (!this->auto_cleaning_interval_.has_value()) {
+        this->auto_cleaning_interval_ = 14400;
       }
+
+      bool result =
+          write_command(SEN44_CMD_AUTO_CLEANING_INTERVAL, this->auto_cleaning_interval_.value());
+
       if (result) {
         delay(20);
         uint16_t secs[2];
@@ -142,9 +143,7 @@ void SEN44Component::dump_config() {
   ESP_LOGCONFIG(TAG, "  Productname: %s", this->product_name_.c_str());
   ESP_LOGCONFIG(TAG, "  Firmware version: %d", this->firmware_version_);
   ESP_LOGCONFIG(TAG, "  Serial number %02d.%02d.%02d", serial_number_[0], serial_number_[1], serial_number_[2]);
-  if (this->auto_cleaning_interval_.has_value()) {
-    ESP_LOGCONFIG(TAG, "  Auto cleaning interval %" PRId32 " seconds", auto_cleaning_interval_.value());
-  }
+  ESP_LOGCONFIG(TAG, "  Auto cleaning interval %" PRId32 " seconds", get_auto_cleaning_interval());
   ESP_LOGCONFIG(TAG, "  Temperature offset: %f", this->temperature_offset_);
 
   LOG_UPDATE_INTERVAL(this);
